@@ -1,0 +1,55 @@
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <json-c/json.h>
+#include <json-c/json_tokener.h>
+#include <json-c/json_object.h>
+
+void startProcess(const char* command) {
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Дочерний процесс
+        execl("/bin/sh", "sh", "-c", command, NULL);
+        exit(0);
+    } else if (pid > 0) {
+        // Родительский процесс
+        wait(NULL);
+    } else {
+        // Ошибка при создании процесса
+        printf("Error while creating process\n");
+    }
+}
+
+int main() {
+    FILE *file = fopen("config.json", "r");
+    if (file == NULL) {
+        printf("Error of opening file\n");
+        return 1;
+    }
+
+    char buffer[1024];
+    fread(buffer, sizeof(buffer), 1, file);
+    fclose(file);
+
+    struct json_object *json = json_tokener_parse(buffer);
+    if (json == NULL) {
+        printf("Error of reading JSON\n");
+        return 1;
+    }
+    struct json_object *command_json, *timeout_json;
+    if (!json_object_object_get_ex(json, "command", &command_json) ||
+        !json_object_object_get_ex(json, "timeout", &timeout_json)) {
+        printf("Error of getting data from JSON\n");
+        return 1;
+    }
+
+    const char* command = json_object_get_string(command_json);
+    int timeout = json_object_get_int(timeout_json);
+
+    while (1) {
+        start_process(command);
+        sleep(timeout);
+    }
+
+    return 0;
+}
