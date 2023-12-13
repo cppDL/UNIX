@@ -1,0 +1,41 @@
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#define SHM_FILENAME "dbglog"
+#define SHM_MEMORY_SIZE 1024
+void* initializeSharedMemory() {
+    int shmFileDescriptor;
+    void* shmMemoryPointer;
+    if ((shmFileDescriptor = shm_open(SHM_FILENAME, O_CREAT | O_RDWR, 0666)) == -1) {
+        perror("shm_open");
+        return NULL;
+    }
+    if (ftruncate(shmFileDescriptor, SHM_MEMORY_SIZE) == -1) {
+        perror("ftruncate");
+        return NULL;
+    }
+    shmMemoryPointer = mmap(NULL, SHM_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shmFileDescriptor, 0);
+    if (shmMemoryPointer == MAP_FAILED) {
+        perror("mmap");
+        shm_unlink(SHM_FILENAME);
+        return NULL;
+    }
+    return shmMemoryPointer;
+}
+void writeToSharedMemory(void* shmMemoryPointer, const char* data) {
+    size_t bytesWritten = write(shmMemoryPointer, data);
+    if (bytesWritten != strlen(data)) {
+        perror("write");
+    }
+}
+void closeSharedMemory(void* shmMemoryPointer) {
+    shmdt(shmMemoryPointer);
+    shm_unlink(SHM_FILENAME);
+}
+int main() {
+    void* shmMemoryPointer = initializeSharedMemory();
+    writeToSharedMemory(shmMemoryPointer, "Hello, world!\n");
+    closeSharedMemory(shmMemoryPointer);
+    return 0;
+} 
