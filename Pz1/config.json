@@ -1,0 +1,4 @@
+{
+    "command": "ls -l",
+    "timeout": 10
+}
